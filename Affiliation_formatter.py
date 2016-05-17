@@ -8,9 +8,9 @@ Version: 1.0 Last modified: 2016.02.11
 For comments and questions: ds26@sanger.ac.uk
 
 Required fields of the input xlsx file:
-"First name",
-"Middle name" (Only initials without spaces),
-"Last name"
+"First Name",
+"Middle Name" (Only initials without spaces),
+"Last Name"
 
 Affiliation fields:
 "Institute/Department/University",
@@ -72,7 +72,7 @@ except:
 
 # Checking fields of the dataframe. If any of these will be missing, the script will terminate:
 fields = df.columns.tolist()
-if ((not 'First name' in  fields) or
+if ((not 'First Name' in  fields) or
         (not 'Middle Name' in  fields) or
         (not 'Last Name' in  fields)):
     sys.exit("[Error] Name fields are missing! 'First name', 'Middle Name' and 'Last Name' are required fields of the xlsx file!\n")
