@@ -1,15 +1,21 @@
-#!/nfs/team144/ds26/anaconda2/bin/python
+#!/usr/bin/env python
 
 '''
 This script was written to create a formatted list of author affiliation list
 for publications with too many authors.
 
-Version: 1.0 Last modified: 2016.02.11
+Version: 1.1 Last modified: 2016.12.27
+
+Change log:
+    - Advanced error checking and more informative error messages.
+    - Column headers now case insensitve
+    - Adjusted for python 3.5
+
 For comments and questions: ds26@sanger.ac.uk
 
 Required fields of the input xlsx file:
 "First Name",
-"Middle Name" (Only initials without spaces),
+"Middle Name" (Only initials, without spaces),
 "Last Name"
 
 Affiliation fields:
@@ -19,11 +25,13 @@ Affiliation fields:
 "Country"
 
 The affiliation fields can be repeated as many times as necessary. Other fields
-in the xlsx table will not be considered.
+in the xlsx table will not be considered. As of v.1.1 field names are case insensitive!
 
 Output formats:
 Author names: [First name] [Middle name initials]. [Last name]^[affiliation_number]
 Affiliation list: [affiliation_number]. [Institute/Department/University], [City/State] [Post/Zip Code], [Country]
+
+Requirements: pandas v1.6 or above.
 '''
 
 # importing libraries:
@@ -54,14 +62,28 @@ else:
         outputFile = filename.groups()[0] + ".html"
 
 # Print status update:
-print "[Info] Input file: %s\n[Info] Output file: %s" %(inputFile, outputFile)
+print("[Info] Input file: %s\n[Info] Output file: %s" %(inputFile, outputFile))
 
 # Check if input file is exists:
 if not os.path.isfile(inputFile):
     sys.exit("[Error] Input file (%s) does not exist.\n" % (inputFile))
 
 # pandas is the only package that has to be loaded:
-import pandas as pd
+try:
+    import pandas as pd
+except:
+    print("[Error] pandas package (version 0.16 or above) is required! Exiting.")
+    quit();
+
+# checking pandas version:
+try:
+    int(pd.__version__.split(".")[1])
+    if int(pd.__version__.split(".")[1]) < 16:
+        print("[Error] pandas version should be at least 0.16! Exiting.")
+        quit()
+except:
+    print("[Error] Version testing of the pandas package was failed. Exiting.")
+    quit()
 
 # Reading input xlsx file as a pandas dataframe:
 try:
@@ -69,39 +91,36 @@ try:
 except:
     sys.exit("[Error] Excel table could not be loaded! Check format.")
 
+# Modifying column headers:
+df.columns = [x.lower() for x in df.columns] # Set all column names to lowercase.
+df.columns = [x.replace(" ", "_") for x in df.columns] # Replacing spaces with underscores.
 
-# Checking fields of the dataframe. If any of these will be missing, the script will terminate:
+# Checking fields of the dataframe. If any of the required fields are missing, the script will terminate:
 fields = df.columns.tolist()
-if ((not 'First Name' in  fields) or
-        (not 'Middle Name' in  fields) or
-        (not 'Last Name' in  fields)):
-    sys.exit("[Error] Name fields are missing! 'First name', 'Middle Name' and 'Last Name' are required fields of the xlsx file!\n")
+if ((not 'first_name' in  fields) or
+        (not 'middle_name' in  fields) or
+        (not 'last_name' in  fields)):
+    sys.exit("[Error] Name fields are missing! 'first name', 'middle name' and 'last name' are required fields of the xlsx file!\n")
 
-if ((not 'Institute/Department/University' in  fields) or
-        (not 'City/State' in  fields) or
-        (not 'Post/Zip code' in  fields) or
-        (not 'Country' in  fields)):
+if ((not 'institute/department/university' in  fields) or
+        (not 'city/state' in  fields) or
+        (not 'post/zip_code' in  fields) or
+        (not 'country' in  fields)):
     sys.exit("[Error] Affiliation fields are missing! 'Institute/Department/University', 'Post/Zip code', 'City/State' and 'Country' are required fields of the xlsx file!\n")
 
 # Get maximum number of affiliations (based on field counts):
 suffixes = ['']
 for field in df.columns.tolist():
     try:
-        match = re.search("Country(.+)", field)
+        match = re.search("country(.+)", field)
         suffixes.append(match.groups()[0])
     except:
         continue
-print "[Info] Maximum number of affiliations: %s" %(len(suffixes))
-print "[INfo] Number of authors in the list: %s" %(len(df))
+print("[Info] Maximum number of affiliations: %s" %(len(suffixes)))
+print("[INfo] Number of authors in the list: %s" %(len(df)))
 
 # At this point I have to delete all lines where none of the name fields are filled:
-df = df.dropna(how='all', subset=["First name", "Middle Name", "Last Name"]).reindex()
-
-# Defining a set of functions that will be used:
-'''
-List of functions to process and format author names and affiliations
-They will be used in the apply functions.
-'''
+df = df.dropna(how='all', subset=["first_name", "middle_name", "last_name"]).reindex()
 
 def get_full_name(row):
     '''
@@ -114,9 +133,9 @@ def get_full_name(row):
 
     full_name = ""
     try:
-        first = row["First name"].strip()
-        middle = row["Middle Name"]
-        last = row["Last Name"].strip()
+        first = row["first_name"].strip()
+        middle = row["middle_name"]
+        last = row["last_name"].strip()
 
         if pd.isnull(middle):
             full_name = first+" "+last
@@ -127,9 +146,9 @@ def get_full_name(row):
             full_name += " " +last
     except:
         try:
-            full_name = row["First name"].strip()
+            full_name = row["first_name"].strip()
         except:
-            full_name = row["Last Name"].strip()
+            full_name = row["last_name"].strip()
     return full_name
 
 def get_affiliation_lists(row, suffixes):
@@ -144,10 +163,10 @@ def get_affiliation_lists(row, suffixes):
 
         affiliation = ""
 
-        inst = row['Institute/Department/University'+suffix]
-        city = row['City/State'+suffix]
-        postcode = row['Post/Zip code'+suffix]
-        country = row['Country'+suffix]
+        inst = row['institute/department/university'+suffix]
+        city = row['city/state'+suffix]
+        postcode = row['post/zip_code'+suffix]
+        country = row['country'+suffix]
 
         if not pd.isnull(inst):
             affiliation += inst.strip()
@@ -195,10 +214,10 @@ affiliation_list
 # Now we have to print out the affiliation list sorted for the dictionary value:
 affiliation_list_sorted = sorted(affiliation_list, key=affiliation_list.get)
 
-print "[Info] Formatting output... ",
+print("[Info] Formatting output... ", end='')
 
 # Now saving what we have:
-html = '<!DOCTYPE html>\n<html>\n<body>\n<div></div>\n\n<div style="font-size: 16px; margin-left: 10px">'
+html = '<!DOCTYPE html>\n<html>\n<head><meta charset="UTF-8"></head>\n<body>\n<div></div>\n\n<div style="font-size: 16px; margin-left: 10px">'
 
 # Looping through all authors:
 for row in names_numbers:
@@ -221,7 +240,7 @@ html += '</ol>\n<br>\n</body>\n</html>'
 
 # Saving html data into file:
 f = open(outputFile, 'w')
-f.write(html.encode('utf8'))
+f.write(html)
 f.close()
 
-print " done."
+print(" done.")
